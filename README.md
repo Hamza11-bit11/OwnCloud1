@@ -1,113 +1,171 @@
-# -------------------------
-# PASO 1: Actualització del sistema
-# -------------------------
-# Actualitzem els paquets disponibles i les versions instal·lades al servidor
-sudo apt update && sudo apt upgrade -y
+# Instal·lació i configuració d'aplicacions web
 
-# -------------------------
-# PASO 2: Instal·lació d'Apache2
-# -------------------------
-# Instal·lem el servidor web Apache2, que serà el motor per a la nostra aplicació web
+Per instal·lar una aplicació web hem de baixar el seu codi font i portar-lo al directori arrel del nostre servidor d'aplicacions, en el nostre cas, `apache2`. Quan instal·lem `apache2` es crea una carpeta a `/var/www/html` on, per defecte, el servidor web utilitza com a directori arrel.
+
+Llavors, si portem la nostra aplicació al directori `/var/www/html` tindrem accés a la nostra aplicació mitjaçant l'adreça `http://localhost`.
+
+## Instal·lació d'apache2, mysql i algunes llibreries al contenidor
+
+1. Actualització de la màquina.
+```bash
+sudo apt update
+```
+```bash
+sudo apt upgrade
+```
+
+2. Instal·lació del servidor web `apache2`.
+```bash
 sudo apt install -y apache2
+```
 
-# -------------------------
-# PASO 3: Instal·lació de MySQL
-# -------------------------
-# Instal·lem MySQL, el sistema de bases de dades que gestionarà la informació de l'aplicació
+3. Instal·lació del servidor de bases de dades `mysql-server`.
+```bash
 sudo apt install -y mysql-server
+```
 
-# -------------------------
-# PASO 4: Instal·lació de PHP i llibreries necessàries
-# -------------------------
-# PHP és el llenguatge principal de l’aplicació, i necessitem algunes llibreries addicionals
-sudo apt install -y php libapache2-mod-php php-fpm php-common php-mbstring php-xmlrpc php-soap php-gd php-xml php-intl php-mysql php-cli php-ldap php-zip php-curl
+4. Instal·lació d'algunes llibreries de `php`, el llenguatge principal que utilitzen les aplicacions.
+```bash
+sudo apt install -y php libapache2-mod-php
+```
+```bash
+sudo apt install -y php-fpm php-common php-mbstring php-xmlrpc php-soap php-gd php-xml php-intl php-mysql php-cli php-ldap php-zip php-curl
+```
 
-# -------------------------
-# PASO 5: Reiniciem Apache2
-# -------------------------
-# Després de la instal·lació, reiniciem Apache per assegurar-nos que tots els serveis estiguin actius
+5. Reiniciem el servidor apache2
+```bash
 sudo systemctl restart apache2
+```
 
-# -------------------------
-# PASO 6: Configuració de MySQL
-# -------------------------
-# Accedim a la consola de MySQL com a superusuari per configurar la base de dades i l'usuari
+## Configuració de MySQL
+### Accedim a la consola de MySQL
+Des d'un terminal on siguem `root` hem d'executar la següent comanda:
+```bash
 sudo mysql
+```
 
-# A dins de MySQL: Creació de la base de dades per a l'aplicació
+### Creació de la base de dades:
+Un cop dins la consola de MySQL executem les comandes per a crear la base de dades. En aquest cas estem creant una base de dades amb el nom `bbdd`.
+
+```bash
 CREATE DATABASE bbdd;
+```
 
-# Creació d'un usuari que gestionarà la base de dades (canviar 'password' per una contrasenya segura)
+### Creació d'un usuari
+Tingueu en compte que s'haurà d'identificar la IP des de la qual s'accedirà a la base de dades, en aquest cas, `localhost`.
+
+```bash
 CREATE USER 'usuario'@'localhost' IDENTIFIED WITH mysql_native_password BY 'password';
+```
 
-# Assignació de privilegis a l'usuari sobre la nova base de dades
-GRANT ALL ON bbdd.* TO 'usuario'@'localhost';
+### Donem privilegis a l'usuari:
+```bash
+GRANT ALL ON bbdd.* to 'usuario'@'localhost';
+```
 
-# Sortim de la consola de MySQL
+### Sortim de la base de dades
+```bash
 exit
+```
 
-# -------------------------
-# PASO 7: Comprovació de la connexió a MySQL
-# -------------------------
-# Ens assegurem que l'usuari creat pot connectar-se a la base de dades
+### Probem la connexió a la base de dades
+Des d'un terminal amb un usuari sense privilegis hem de ser capaços de connectar introduïnt la nostra contrassenya.
+
+```bash
 mysql -u usuario -p
+```
 
-# -------------------------
-# PASO 8: Configuració per permetre connexions remotes (opcional)
-# -------------------------
-# Editem la configuració de MySQL per permetre connexions des d'altres equips
-sudo vim /etc/mysql/mysql.conf.d/mysqld.cnf
+## Extra: permetre la connexió des d'una màquina remota
+Per seguretat, MySQL no permet per defecte connexions que no siguin des de localhost. Si volem canviar aquest comportament hem de crear un altre usuari que accedirà des d'una màquina remota i estarà identificat pel nom d'usuari i la seva IP. Així doncs, poden existir diferents usuaris anomenats `usuario` que connecten des de diferents màquines.
 
-# Dins de l'arxiu, canviem la línia següent:
-# bind-address = 127.0.0.1
-# Per aquesta:
-# bind-address = 0.0.0.0
+### Canviem l'accés per defecte a la nostra màquina
+Permetem l'accés des de qualsevol equip a la nostra base de dades. Editem l'arxiu `/etc/mysql/mysql.conf.d/mysqld.cnf`
 
-# Reiniciem el servidor MySQL per aplicar aquests canvis
-sudo systemctl restart mysql
+```bash
+vim /etc/mysql/mysql.conf.d/mysqld.cnf
+```
 
-# Tornem a la consola de MySQL per crear un usuari amb accés remot (IP de l’equip des del qual es connectarà)
-sudo mysql
+Busquem la línia següent:
+```bash
+bind-address = 127.0.0.1
+```
+
+Hem de canviar el `bind-address` per `0.0.0.0` i la línia ha de quedar així:
+```bash
+bind-address = 0.0.0.0
+```
+
+### Reiniciem el servidor
+```bash
+systemctl restart mysql
+```
+
+### Creació d'un usuari per a accedir des d'una màquina remota
+Per accedir des d'una màquina remota, hauriem de crear un usuari nou identificat pel nom d'usuari i la IP de la màquina des de la qual accedirà.
+
+```bash
 CREATE USER 'usuario'@'192.168.22.100' IDENTIFIED WITH mysql_native_password BY 'password';
-GRANT ALL ON bbdd.* TO 'usuario'@'192.168.22.100';
+```
+
+Hem de donar privilegis a l'usuari que accedirà des de la màquina remota.
+Per accedir des de fora, hauriem de donar-li també privilegis a l'usuari a l'altra màquina:
+
+```bash
+GRANT ALL ON bbdd.* to 'usuario'@'192.168.22.100';
+```
+
+```bash
 exit
+```
 
-# -------------------------
-# PASO 9: Descarregar i descomprimir l’aplicació web
-# -------------------------
-# Copiem l'arxiu comprimit de l'aplicació al directori arrel de Apache
+## Descarreguem els fitxers de l'aplicació web
+Anem al directori `/var/www/html` i descomprimim allà els fitxers de l'aplicació web, heu de substituir `app-web.zip` per el nom del vostre fitxer que heu descarregat amb l'aplicació web i el nom de la carpeta `app-web` per la carpeta que us ha creat, si la vostra instal·lació de linux està en un idioma diferent al català, no tindreu la carpeta `Baixades`, modifiqueu la comanda per adaptarla a les vostrs necessitats.
+
+```bash
 sudo cp ~/Baixades/app-web.zip /var/www/html
-
-# Ens dirigim al directori arrel de l'aplicació
+```
+Aneu al directori `/var/www/html`
+```bash
 cd /var/www/html
-
-# Descomprimim l'arxiu
+```
+Descomprimiu el fitxer que heu baixat
+```bash
 sudo unzip app-web.zip
-
-# Movem els fitxers de l'aplicació al directori arrel i eliminem la carpeta temporal
+```
+Copieu els fitxers a la carpeta `/var/www/html`, modifiqueu `app-web` pel nom del directori on s'ha descomprimit el vostre arxiu.
+```bash
 sudo cp -R app-web/. /var/www/html
+```
+Eliminem la carpeta creada quan hem fet l'`unzip`
+```bash
 sudo rm -rf app-web/
+```
 
-# -------------------------
-# PASO 10: Eliminació del fitxer per defecte d'Apache
-# -------------------------
-# Suprimim l'index.html per defecte d'Apache per assegurar que es carregui la nostra aplicació
+## Eliminem el fitxer `index.html` de l'`apache2`
+```bash
 sudo rm -rf /var/www/html/index.html
+```
 
-# -------------------------
-# PASO 11: Configuració de permisos per a l’aplicació
-# -------------------------
-# Assegurem que el directori i els fitxers de l'aplicació tenen els permisos adequats
+## Aplicació de permisos a les nostres aplicacions web
+Un cop descomprimits els fitxers de l'aplicació web al directori `/var/www/html`, apliquem els següents permisos al directori `/var/www/html`
+
+```bash
 cd /var/www/html
+```
+```bash
 sudo chmod -R 775 .
+```
+```bash
 sudo chown -R usuario:www-data .
+```
+## Accedim al navegador per veure que tot funciona
+Poseu la direcció http://localhost al navegador web i configureu la cloud.
 
-# -------------------------
-# PASO 12: Verificació de la instal·lació
-# -------------------------
-# Finalment, obrim http://localhost al navegador per comprovar que l’aplicació funciona correctament
-# Introduïu la següent informació de configuració al navegador (si no heu fet canvis a la configuració):
-# * usuari: usuario
-# * contrasenya: password
-# * base de dades: bbdd
-# * domini: localhost
+Si tot ha anat bé i heu seguit el manual us apareixerà l'instal·lador de l'aplicació web que heu baixat i us demanarà crear un usuario admin i la informació de la base de dades.
+
+La informació que heu de posar (si no heu modificat la informació del manual) és la següent:
+
+* **usuari:** usuario
+* **contrasenya:** password
+* **base de dades:** bbdd
+* **domini:** localhost
