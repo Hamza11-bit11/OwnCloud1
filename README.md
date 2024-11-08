@@ -1,171 +1,63 @@
-# Instal·lació i configuració d'aplicacions web
-
-Per instal·lar una aplicació web hem de baixar el seu codi font i portar-lo al directori arrel del nostre servidor d'aplicacions, en el nostre cas, `apache2`. Quan instal·lem `apache2` es crea una carpeta a `/var/www/html` on, per defecte, el servidor web utilitza com a directori arrel.
-
-Llavors, si portem la nostra aplicació al directori `/var/www/html` tindrem accés a la nostra aplicació mitjaçant l'adreça `http://localhost`.
-
-## Instal·lació d'apache2, mysql i algunes llibreries al contenidor
-
-1. Actualització de la màquina.
-```bash
+# Actualización del sistema
 sudo apt update
-```
-```bash
 sudo apt upgrade
-```
 
-2. Instal·lació del servidor web `apache2`.
-```bash
+# Instalación del servidor web apache2
 sudo apt install -y apache2
-```
 
-3. Instal·lació del servidor de bases de dades `mysql-server`.
-```bash
+# Instalación del servidor de bases de datos mysql-server
 sudo apt install -y mysql-server
-```
 
-4. Instal·lació d'algunes llibreries de `php`, el llenguatge principal que utilitzen les aplicacions.
-```bash
+# Instalación de PHP y librerías adicionales necesarias
 sudo apt install -y php libapache2-mod-php
-```
-```bash
 sudo apt install -y php-fpm php-common php-mbstring php-xmlrpc php-soap php-gd php-xml php-intl php-mysql php-cli php-ldap php-zip php-curl
-```
 
-5. Reiniciem el servidor apache2
-```bash
+# Reiniciamos apache2
 sudo systemctl restart apache2
-```
 
-## Configuració de MySQL
-### Accedim a la consola de MySQL
-Des d'un terminal on siguem `root` hem d'executar la següent comanda:
-```bash
-sudo mysql
-```
-
-### Creació de la base de dades:
-Un cop dins la consola de MySQL executem les comandes per a crear la base de dades. En aquest cas estem creant una base de dades amb el nom `bbdd`.
-
-```bash
+# Accedemos a la consola de MySQL
+sudo mysql <<EOF
+# Creación de la base de datos
 CREATE DATABASE bbdd;
-```
 
-### Creació d'un usuari
-Tingueu en compte que s'haurà d'identificar la IP des de la qual s'accedirà a la base de dades, en aquest cas, `localhost`.
-
-```bash
+# Creación de un usuario para la base de datos
 CREATE USER 'usuario'@'localhost' IDENTIFIED WITH mysql_native_password BY 'password';
-```
 
-### Donem privilegis a l'usuari:
-```bash
-GRANT ALL ON bbdd.* to 'usuario'@'localhost';
-```
+# Asignación de permisos al usuario en la base de datos
+GRANT ALL ON bbdd.* TO 'usuario'@'localhost';
 
-### Sortim de la base de dades
-```bash
-exit
-```
+# Salimos de MySQL
+EXIT;
+EOF
 
-### Probem la connexió a la base de dades
-Des d'un terminal amb un usuari sense privilegis hem de ser capaços de connectar introduïnt la nostra contrassenya.
+# Prueba de conexión a la base de datos (se debe ejecutar manualmente con la contraseña)
+# mysql -u usuario -p
 
-```bash
-mysql -u usuario -p
-```
+# Configuración opcional para permitir conexiones remotas a MySQL
+# Modificación de la configuración de MySQL para aceptar conexiones externas
+sudo sed -i 's/bind-address\s*=\s*127.0.0.1/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
 
-## Extra: permetre la connexió des d'una màquina remota
-Per seguretat, MySQL no permet per defecte connexions que no siguin des de localhost. Si volem canviar aquest comportament hem de crear un altre usuari que accedirà des d'una màquina remota i estarà identificat pel nom d'usuari i la seva IP. Així doncs, poden existir diferents usuaris anomenats `usuario` que connecten des de diferents màquines.
+# Reinicio de MySQL para aplicar cambios
+sudo systemctl restart mysql
 
-### Canviem l'accés per defecte a la nostra màquina
-Permetem l'accés des de qualsevol equip a la nostra base de dades. Editem l'arxiu `/etc/mysql/mysql.conf.d/mysqld.cnf`
-
-```bash
-vim /etc/mysql/mysql.conf.d/mysqld.cnf
-```
-
-Busquem la línia següent:
-```bash
-bind-address = 127.0.0.1
-```
-
-Hem de canviar el `bind-address` per `0.0.0.0` i la línia ha de quedar així:
-```bash
-bind-address = 0.0.0.0
-```
-
-### Reiniciem el servidor
-```bash
-systemctl restart mysql
-```
-
-### Creació d'un usuari per a accedir des d'una màquina remota
-Per accedir des d'una màquina remota, hauriem de crear un usuari nou identificat pel nom d'usuari i la IP de la màquina des de la qual accedirà.
-
-```bash
+# Creación de un usuario remoto (cambiar la IP 192.168.22.100 por la necesaria)
+sudo mysql <<EOF
 CREATE USER 'usuario'@'192.168.22.100' IDENTIFIED WITH mysql_native_password BY 'password';
-```
+GRANT ALL ON bbdd.* TO 'usuario'@'192.168.22.100';
+EXIT;
+EOF
 
-Hem de donar privilegis a l'usuari que accedirà des de la màquina remota.
-Per accedir des de fora, hauriem de donar-li també privilegis a l'usuari a l'altra màquina:
-
-```bash
-GRANT ALL ON bbdd.* to 'usuario'@'192.168.22.100';
-```
-
-```bash
-exit
-```
-
-## Descarreguem els fitxers de l'aplicació web
-Anem al directori `/var/www/html` i descomprimim allà els fitxers de l'aplicació web, heu de substituir `app-web.zip` per el nom del vostre fitxer que heu descarregat amb l'aplicació web i el nom de la carpeta `app-web` per la carpeta que us ha creat, si la vostra instal·lació de linux està en un idioma diferent al català, no tindreu la carpeta `Baixades`, modifiqueu la comanda per adaptarla a les vostrs necessitats.
-
-```bash
+# Descarregar i moure els fitxers de l'aplicació web a /var/www/html
 sudo cp ~/Baixades/app-web.zip /var/www/html
-```
-Aneu al directori `/var/www/html`
-```bash
 cd /var/www/html
-```
-Descomprimiu el fitxer que heu baixat
-```bash
 sudo unzip app-web.zip
-```
-Copieu els fitxers a la carpeta `/var/www/html`, modifiqueu `app-web` pel nom del directori on s'ha descomprimit el vostre arxiu.
-```bash
 sudo cp -R app-web/. /var/www/html
-```
-Eliminem la carpeta creada quan hem fet l'`unzip`
-```bash
 sudo rm -rf app-web/
-```
 
-## Eliminem el fitxer `index.html` de l'`apache2`
-```bash
+# Eliminació de l'index.html per defecte de apache2
 sudo rm -rf /var/www/html/index.html
-```
 
-## Aplicació de permisos a les nostres aplicacions web
-Un cop descomprimits els fitxers de l'aplicació web al directori `/var/www/html`, apliquem els següents permisos al directori `/var/www/html`
-
-```bash
+# Assignació de permisos a l'aplicació web
 cd /var/www/html
-```
-```bash
 sudo chmod -R 775 .
-```
-```bash
 sudo chown -R usuario:www-data .
-```
-## Accedim al navegador per veure que tot funciona
-Poseu la direcció http://localhost al navegador web i configureu la cloud.
-
-Si tot ha anat bé i heu seguit el manual us apareixerà l'instal·lador de l'aplicació web que heu baixat i us demanarà crear un usuario admin i la informació de la base de dades.
-
-La informació que heu de posar (si no heu modificat la informació del manual) és la següent:
-
-* **usuari:** usuario
-* **contrasenya:** password
-* **base de dades:** bbdd
-* **domini:** localhost
